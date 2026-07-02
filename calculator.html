@@ -234,6 +234,7 @@ async function fetchLive() {
       return;
     }
     data = data.filter(r => r.company !== ticker);
+    json.rows.sort((a, b) => parseInt(a.year) - parseInt(b.year));
     json.rows.forEach(r => {
       data.push({
         company: ticker, year: parseInt(r.year), ni: 0, ocf: r.ocf, capex: r.capex,
