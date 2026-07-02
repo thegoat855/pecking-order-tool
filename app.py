@@ -17,6 +17,7 @@ Then open calculator.html in a browser (it calls http://localhost:5000).
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import yfinance as yf
+import math
 
 app = Flask(__name__)
 CORS(app)  # allow the HTML frontend to call this from a file:// or other origin
