@@ -50,11 +50,11 @@ def compute_regression(xs, ys):
     return beta, r2
 
 
+import math
 def deviation_score(beta):
-    if beta is None:
+    if beta is None or (isinstance(beta, float) and math.isnan(beta)):
         return None
     return max(0, min(100, 100 - 50 * abs(beta - 1)))
-
 
 @app.route('/api/analyze')
 def analyze():
@@ -99,8 +99,9 @@ def analyze():
     for i, yr in enumerate(years):
         try:
             o, c, d, lt, st = ocf[i], capex[i], div[i], lt_debt[i], st_debt[i]
-            if any(v is None for v in (o, c, d, lt, st)):
-                continue
+            import math
+if any(v is None or (isinstance(v, float) and math.isnan(v)) for v in (o, c, d, lt, st)):
+    continue
             capex_pos = abs(c)  # capex often reported negative; normalize to positive spend
             deficit = d + capex_pos - o
             debt_issued = lt + st
