@@ -20,7 +20,7 @@ import yfinance as yf
 
 app = Flask(__name__)
 CORS(app)  # allow the HTML frontend to call this from a file:// or other origin
-
+CORS(app, origins=["https://thegoat855.github.io", "http://localhost:5000"])
 
 def safe_get(series, label):
     """Pull a row from the yfinance cashflow dataframe by label, return
