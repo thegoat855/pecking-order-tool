@@ -11,7 +11,7 @@ when run locally or deployed somewhere with open internet access.
 Run locally:
     pip install flask flask-cors yfinance
     python app.py
-Then open calculator.html in a browser (it calls http://localhost:5000).
+Then open calculator.html in a browser (uses Render)
 """
 
 from flask import Flask, jsonify, request
@@ -20,12 +20,10 @@ import yfinance as yf
 import math
 
 app = Flask(__name__)
-CORS(app)  # allow the HTML frontend to call this from a file:// or other origin
-CORS(app, origins=["https://thegoat855.github.io", "http://localhost:5000"])
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 
 def safe_get(series, label):
-    """Pull a row from the yfinance cashflow dataframe by label, return
-    list of values per year (most recent first), or None if missing."""
     try:
         row = series.loc[label]
         return row.tolist()
@@ -51,11 +49,19 @@ def compute_regression(xs, ys):
     return beta, r2
 
 
-import math
 def deviation_score(beta):
-    if beta is None or (isinstance(beta, float) and math.isnan(beta)):
+    if beta is None or math.isnan(beta):
         return None
     return max(0, min(100, 100 - 50 * abs(beta - 1)))
+
+
+def is_bad(v):
+    if v is None:
+        return True
+    if isinstance(v, float) and math.isnan(v):
+        return True
+    return False
+
 
 @app.route('/api/analyze')
 def analyze():
@@ -65,7 +71,7 @@ def analyze():
 
     try:
         stock = yf.Ticker(ticker)
-        cf = stock.cashflow  # annual cash flow statement, columns = fiscal years
+        cf = stock.cashflow
     except Exception as e:
         return jsonify({'error': f'Could not fetch data for {ticker}: {str(e)}'}), 500
 
@@ -74,7 +80,6 @@ def analyze():
 
     years = [str(c.year) for c in cf.columns]
 
-    # yfinance label names (these can vary slightly by company/filing type)
     ocf = safe_get(cf, 'Operating Cash Flow') or safe_get(cf, 'Cash Flow From Continuing Operating Activities')
     capex = safe_get(cf, 'Capital Expenditure')
     div = safe_get(cf, 'Cash Dividends Paid') or safe_get(cf, 'Common Stock Dividend Paid')
@@ -86,10 +91,8 @@ def analyze():
         ('Operating Cash Flow', ocf), ('Capital Expenditure', capex),
     ] if val is None]
     if missing:
-        return jsonify({'error': f'{ticker}: missing required fields: {missing}. '
-                                  f'Available rows: {list(cf.index)}'}), 422
+        return jsonify({'error': f'{ticker}: missing required fields: {missing}'}), 422
 
-    # Fill optional fields with zeros where genuinely absent (e.g. no dividend, no ST debt)
     div = div or [0] * len(years)
     lt_debt = lt_debt or [0] * len(years)
     st_debt = st_debt or [0] * len(years)
@@ -100,10 +103,9 @@ def analyze():
     for i, yr in enumerate(years):
         try:
             o, c, d, lt, st = ocf[i], capex[i], div[i], lt_debt[i], st_debt[i]
-            import math
-if any(v is None or (isinstance(v, float) and math.isnan(v)) for v in (o, c, d, lt, st)):
-    continue
-            capex_pos = abs(c)  # capex often reported negative; normalize to positive spend
+            if any(is_bad(v) for v in (o, c, d, lt, st)):
+                continue
+            capex_pos = abs(c)
             deficit = d + capex_pos - o
             debt_issued = lt + st
             xs.append(deficit)
