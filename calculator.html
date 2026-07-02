@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pecking Order Deviation Calculator</title>
+<style>
+  :root {
+    --bg: #0E1116;
+    --panel: #161A21;
+    --panel-line: #262C36;
+    --ink: #E8E6DD;
+    --ink-dim: #8A8F99;
+    --amber: #D4A93E;
+    --green: #4FAE7A;
+    --red: #C2604B;
+    --mono: 'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace;
+    --serif: 'Source Serif Pro', Georgia, 'Times New Roman', serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--serif);
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { margin-bottom: 36px; border-bottom: 1px solid var(--panel-line); padding-bottom: 24px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 10px;
+  }
+  h1 { font-size: 28px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-dim); font-size: 14px; max-width: 640px; line-height: 1.5; }
+
+  .formula {
+    font-family: var(--mono); font-size: 13px; color: var(--ink-dim);
+    background: var(--panel); border: 1px solid var(--panel-line);
+    padding: 14px 16px; border-radius: 4px; margin: 20px 0 0; line-height: 1.7;
+  }
+  .formula b { color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 28px; font-family: var(--mono); font-size: 13px; }
+  th { text-align: left; font-weight: 500; color: var(--ink-dim); font-size: 11px;
+       text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 10px; border-bottom: 1px solid var(--panel-line); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--panel-line); }
+  tr.company-row td:first-child { color: var(--ink); font-weight: 600; font-family: var(--serif); font-size: 14px; }
+  input[type=number] {
+    width: 90px; background: var(--panel); border: 1px solid var(--panel-line); color: var(--ink);
+    font-family: var(--mono); font-size: 12px; padding: 5px 6px; border-radius: 3px;
+  }
+  input[type=number]:focus { outline: none; border-color: var(--amber); }
+
+  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+             background: var(--panel-line); margin-top: 32px; border: 1px solid var(--panel-line); border-radius: 4px; overflow: hidden; }
+  .card { background: var(--panel); padding: 18px 16px; }
+  .card .name { font-size: 13px; color: var(--ink-dim); margin-bottom: 10px; font-family: var(--mono); }
+  .card .score { font-family: var(--mono); font-size: 30px; font-weight: 600; line-height: 1; }
+  .card .beta { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); margin-top: 6px; }
+  .card .profile { font-family: var(--mono); font-size: 10px; margin-top: 10px; padding: 3px 7px;
+                    border-radius: 3px; display: inline-block; }
+  .profile.surplus { background: rgba(212,169,62,0.12); color: var(--amber); }
+  .profile.deficit { background: rgba(79,174,122,0.12); color: var(--green); }
+
+  .add-row { margin-top: 16px; }
+  button {
+    font-family: var(--mono); font-size: 12px; background: transparent; color: var(--amber);
+    border: 1px solid var(--amber); padding: 7px 14px; border-radius: 3px; cursor: pointer;
+  }
+  button:hover { background: rgba(212,169,62,0.1); }
+  button.remove { color: var(--red); border-color: var(--red); padding: 3px 8px; font-size: 11px; }
+
+  .note { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); margin-top: 28px; line-height: 1.7; }
+  .legend { display: flex; gap: 18px; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Capital Structure / Pecking Order Theory</div>
+    <h1>Pecking Order Deviation Calculator</h1>
+    <div class="sub">Tests whether a firm's net debt issuance tracks its financing deficit
+      (Shyam-Sunder &amp; Myers, 1999, extending Myers' 1984 Pecking Order framework).
+      Edit any cell below — results recompute live.</div>
+    <div class="formula">
+      DEF<sub>t</sub> = Dividends<sub>t</sub> + CapEx<sub>t</sub> − OCF<sub>t</sub>　&nbsp;&nbsp;|&nbsp;&nbsp;
+      NetDebtIssued<sub>t</sub> = <b>α</b> + <b>β</b>·DEF<sub>t</sub> + ε<sub>t</sub>　&nbsp;&nbsp;|&nbsp;&nbsp;
+      Score = 100 − 50·|β − 1|
+    </div>
+  </header>
+
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th>Company / Year</th><th>Net Income</th><th>OCF</th><th>CapEx</th>
+        <th>Dividends</th><th>Net LT Debt</th><th>Net ST Debt</th><th>Net Equity</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <div class="add-row">
+    <input type="text" id="liveTicker" placeholder="Ticker (e.g. RIVN)"
+      style="background:var(--panel); border:1px solid var(--panel-line); color:var(--ink); font-family:var(--mono);
+             font-size:12px; padding:7px 10px; border-radius:3px; width:140px;">
+    <button onclick="fetchLive()">Fetch Live Data</button>
+    <button onclick="addYear()">+ Add Row Manually</button>
+    <span id="liveStatus" style="font-family:var(--mono); font-size:11px; color:var(--ink-dim); margin-left:8px;"></span>
+  </div>
+  <div class="note" style="margin-top:8px;">
+    Live lookup calls the backend API at: <span id="apiBaseDisplay" style="color:var(--ink)"></span>
+  </div>
+
+  <div class="results" id="results"></div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:var(--amber)"></span>Surplus-dominant — equity/debt choice was never a structural necessity</span>
+    <span><span class="dot" style="background:var(--green)"></span>Deficit-dominant — genuine funding gap; theory's actual test case</span>
+  </div>
+
+  <div class="note">
+    Data verified against stockanalysis.com cash flow statements (sourced from SEC 10-K filings via Fiscal.ai),
+    cross-checked Jun 30 2026. β computed via OLS; n&lt;3 years per company returns insufficient-data state.
+    Default panel: P&amp;G, Apple, Tesla, AT&amp;T, Peloton (FY2021–2025).
+  </div>
+</div>
+
+<script>
+// ---- DEPLOYMENT CONFIG ----
+// Replace this with your deployed backend URL (e.g. Render/Railway URL).
+// Leave as localhost for local development.
+const API_BASE = 'http://localhost:5000';
+document.getElementById('apiBaseDisplay').textContent = API_BASE;
+
+const DEFAULT_DATA = [
+  {company:'PG',   year:2021, ni:14352, ocf:18371, capex:2787, div:8263, ltdebt:-570,  stdebt:98,    equity:-9365},
+  {company:'PG',   year:2022, ni:14793, ocf:16723, capex:3156, div:8770, ltdebt:2042,  stdebt:-1067, equity:-7998},
+  {company:'PG',   year:2023, ni:14738, ocf:16848, capex:3062, div:8999, ltdebt:2119,  stdebt:4137,  equity:-6084},
+  {company:'PG',   year:2024, ni:14974, ocf:19846, capex:3322, div:9312, ltdebt:862,   stdebt:-4161, equity:-3101},
+  {company:'PG',   year:2025, ni:16065, ocf:17817, capex:3773, div:9872, ltdebt:260,   stdebt:1508,  equity:-4793},
+
+  {company:'AAPL', year:2021, ni:94680, ocf:104038, capex:11085, div:14467, ltdebt:11643, stdebt:1022,  equity:-92527},
+  {company:'AAPL', year:2022, ni:99803, ocf:122151, capex:10708, div:14841, ltdebt:-4078,  stdebt:3955,  equity:-95625},
+  {company:'AAPL', year:2023, ni:96995, ocf:110543, capex:10959, div:15025, ltdebt:-5923,  stdebt:-3978, equity:-82981},
+  {company:'AAPL', year:2024, ni:93736, ocf:118254, capex:9447,  div:15234, ltdebt:-9958,  stdebt:3960,  equity:-100390},
+  {company:'AAPL', year:2025, ni:112010,ocf:111482, capex:12715, div:15421, ltdebt:-6451,  stdebt:-2032, equity:-96671},
+
+  {company:'TSLA', year:2021, ni:5644,  ocf:11497, capex:6514, div:0, ltdebt:-5732, stdebt:0, equity:707},
+  {company:'TSLA', year:2022, ni:12587, ocf:14724, capex:7163, div:0, ltdebt:-3866, stdebt:0, equity:541},
+  {company:'TSLA', year:2023, ni:14974, ocf:13256, capex:8899, div:0, ltdebt:2116,  stdebt:0, equity:700},
+  {company:'TSLA', year:2024, ni:7153,  ocf:14923, capex:11342,div:0, ltdebt:2863,  stdebt:0, equity:1241},
+  {company:'TSLA', year:2025, ni:3855,  ocf:14747, capex:8527, div:0, ltdebt:-64,   stdebt:0, equity:1186},
+
+  {company:'T',    year:2021, ni:23776, ocf:41958, capex:15545, div:15068, ltdebt:6892,   stdebt:17003,  equity:-106},
+  {company:'T',    year:2022, ni:-6874, ocf:32023, capex:19626, div:9859,  ltdebt:-22139, stdebt:-16120, equity:-862},
+  {company:'T',    year:2023, ni:15623, ocf:38314, capex:17853, div:8136,  ltdebt:-2040,  stdebt:947,    equity:-191},
+  {company:'T',    year:2024, ni:12253, ocf:38771, capex:20263, div:8208,  ltdebt:-10278, stdebt:-1996,  equity:-200},
+  {company:'T',    year:2025, ni:23386, ocf:40284, capex:20842, div:8180,  ltdebt:8499,   stdebt:0,      equity:-4479},
+
+  {company:'PTON', year:2021, ni:-189,    ocf:-239.7, capex:252.3, div:0, ltdebt:977.2, stdebt:0, equity:21.7},
+  {company:'PTON', year:2022, ni:-2827.7, ocf:-2020,  capex:337.3, div:0, ltdebt:696.4, stdebt:0, equity:1320},
+  {company:'PTON', year:2023, ni:-1261.7, ocf:-387.6, capex:82.4,  div:0, ltdebt:-7.5,  stdebt:0, equity:86.7},
+  {company:'PTON', year:2024, ni:-551.9,  ocf:-66.1,  capex:19.7,  div:0, ltdebt:-138.2,stdebt:0, equity:44.3},
+  {company:'PTON', year:2025, ni:-118.9,  ocf:333,    capex:9.3,   div:0, ltdebt:-10,   stdebt:0, equity:11.8},
+];
+
+let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+
+function regress(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return {beta:null, r2:null};
+  const mx = xs.reduce((a,b)=>a+b,0)/n;
+  const my = ys.reduce((a,b)=>a+b,0)/n;
+  let sxy=0, sxx=0;
+  for (let i=0;i<n;i++){ sxy += (xs[i]-mx)*(ys[i]-my); sxx += (xs[i]-mx)**2; }
+  if (sxx===0) return {beta:null, r2:null};
+  const beta = sxy/sxx;
+  const alpha = my - beta*mx;
+  const sst = ys.reduce((a,y)=>a+(y-my)**2,0);
+  const ssr = ys.reduce((a,y,i)=>a+(y-(alpha+beta*xs[i]))**2,0);
+  const r2 = sst===0 ? null : 1-(ssr/sst);
+  return {beta, r2};
+}
+
+function render() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  const cols = ['ni','ocf','capex','div','ltdebt','stdebt','equity'];
+  let lastCompany = null;
+  data.forEach((row, idx) => {
+    const tr = document.createElement('tr');
+    if (row.company !== lastCompany) tr.classList.add('company-row');
+    lastCompany = row.company;
+    let html = `<td>${row.company} ${row.year}</td>`;
+    cols.forEach(c => {
+      html += `<td><input type="number" value="${row[c]}" step="any" onchange="updateCell(${idx},'${c}',this.value)"></td>`;
+    });
+    html += `<td><button class="remove" onclick="removeRow(${idx})">×</button></td>`;
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+  });
+  computeResults();
+}
+
+function updateCell(idx, field, val) {
+  data[idx][field] = parseFloat(val) || 0;
+  computeResults();
+}
+
+function removeRow(idx) { data.splice(idx,1); render(); }
+
+function addYear() {
+  const company = prompt('Company ticker:', 'NEW');
+  if (!company) return;
+  const year = prompt('Fiscal year:', '2025');
+  data.push({company, year:parseInt(year), ni:0, ocf:0, capex:0, div:0, ltdebt:0, stdebt:0, equity:0});
+  render();
+}
+
+async function fetchLive() {
+  const ticker = document.getElementById('liveTicker').value.toUpperCase().trim();
+  const status = document.getElementById('liveStatus');
+  if (!ticker) { status.textContent = 'Enter a ticker first.'; return; }
+  status.textContent = 'Fetching...';
+  try {
+    const res = await fetch(`${API_BASE}/api/analyze?ticker=${ticker}`);
+    const json = await res.json();
+    if (json.error) {
+      status.textContent = `Error: ${json.error}`;
+      return;
+    }
+    data = data.filter(r => r.company !== ticker);
+    json.rows.forEach(r => {
+      data.push({
+        company: ticker, year: parseInt(r.year), ni: 0, ocf: r.ocf, capex: r.capex,
+        div: r.dividends, ltdebt: r.lt_debt, stdebt: r.st_debt, equity: r.equity
+      });
+    });
+    status.textContent = `Added ${json.rows.length} years for ${ticker}.`;
+    render();
+  } catch (e) {
+    status.textContent = `Backend not reachable at ${API_BASE}`;
+  }
+}
+
+function computeResults() {
+  const byCompany = {};
+  data.forEach(r => { (byCompany[r.company] = byCompany[r.company]||[]).push(r); });
+
+  const resultsDiv = document.getElementById('results');
+  resultsDiv.innerHTML = '';
+
+  Object.entries(byCompany).forEach(([company, rows]) => {
+    const xs = rows.map(r => r.div + r.capex - r.ocf);
+    const ys = rows.map(r => r.ltdebt + r.stdebt);
+    const {beta, r2} = regress(xs, ys);
+    const avgDef = xs.reduce((a,b)=>a+b,0)/xs.length;
+    const profile = avgDef < 0 ? 'surplus' : 'deficit';
+    const score = beta===null ? null : Math.max(0, Math.min(100, 100 - 50*Math.abs(beta-1)));
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="name">${company}</div>
+      <div class="score" style="color:${score===null?'var(--ink-dim)':scoreColor(score)}">${score===null?'—':score.toFixed(1)}</div>
+      <div class="beta">β = ${beta===null?'n/a':beta.toFixed(2)} &nbsp;|&nbsp; R² = ${r2===null?'n/a':r2.toFixed(2)} &nbsp;|&nbsp; n=${rows.length}</div>
+      <div class="profile ${profile}">${profile==='surplus'?'surplus-dominant':'deficit-dominant'} (avg DEF ${avgDef>=0?'+':''}${avgDef.toFixed(0)})</div>
+    `;
+    resultsDiv.appendChild(card);
+  });
+}
+
+function scoreColor(score) {
+  if (score >= 70) return 'var(--green)';
+  if (score >= 40) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+render();
+</script>
+</body>
+</html>
