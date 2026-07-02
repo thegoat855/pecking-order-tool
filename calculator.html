@@ -187,14 +187,14 @@ function regress(xs, ys) {
 
 function render() {
   const tbody = document.getElementById('tbody');
-  const API_BASE = 'https://pecking-order-tool.onrender.com/';
   tbody.innerHTML = '';
   const cols = ['ni','ocf','capex','div','ltdebt','stdebt','equity'];
   let lastCompany = null;
   data.forEach((row, idx) => {
+    const tr = document.createElement('tr');
     const companyRows = data.filter(r => r.company === row.company);
-const earliestYear = Math.min(...companyRows.map(r => r.year));
-if (row.year === earliestYear) tr.classList.add('company-row');
+    const earliestYear = Math.min(...companyRows.map(r => r.year));
+    if (row.year === earliestYear) tr.classList.add('company-row');
     let html = `<td>${row.company} ${row.year}</td>`;
     cols.forEach(c => {
       html += `<td><input type="number" value="${row[c]}" step="any" onchange="updateCell(${idx},'${c}',this.value)"></td>`;
