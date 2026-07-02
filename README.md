@@ -5,7 +5,7 @@ A quantitative tool testing where Myers' (1984) Pecking Order Theory applies —
 and where it doesn't — across public companies. Built on the Shyam-Sunder &
 Myers (1999) regression framework.
 
-**Live demo:** [your-username.github.io/pecking-order-tool] (update after deploy)
+**Live demo:** 
 
 ---
 
