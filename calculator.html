@@ -334,7 +334,90 @@ function scoreColor(score) {
   return 'var(--red)';
 }
 
+function buildChartForCompany(company, rows) {
+  const xs = rows.map(r => r.div + r.capex - r.ocf);
+  const ys = rows.map(r => r.ltdebt + r.stdebt);
+  const years = rows.map(r => String(r.year));
+  const {beta} = regress(xs, ys);
+  const traces = [];
+  traces.push({
+    x: xs, y: ys, text: years,
+    mode: 'markers+text', textposition: 'top center',
+    marker: {color: '#D4A93E', size: 10},
+    name: 'Annual Data',
+    hovertemplate: 'Year: %{text}<br>Deficit: $%{x:,.0f}M<br>Net Debt: $%{y:,.0f}M<extra></extra>'
+  });
+  if (beta !== null && xs.length >= 2) {
+    const mx = xs.reduce((a,b)=>a+b,0)/xs.length;
+    const my = ys.reduce((a,b)=>a+b,0)/ys.length;
+    const alpha = my - beta * mx;
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    traces.push({x:[x0,x1], y:[alpha+beta*x0,alpha+beta*x1], mode:'lines',
+      line:{color:'#4FAE7A',width:2,dash:'dash'}, name:`β = ${beta.toFixed(2)}`});
+    traces.push({x:[x0,x1], y:[x0,x1], mode:'lines',
+      line:{color:'#8A8F99',width:1,dash:'dot'}, name:'β = 1 (ideal)'});
+  }
+  const layout = {
+    title:{text:`${company} — Deficit vs. Net Debt Issued`,font:{color:'#E8E6DD',size:15}},
+    paper_bgcolor:'#161A21', plot_bgcolor:'#0E1116',
+    font:{color:'#8A8F99',family:'monospace'},
+    xaxis:{title:'Financing Deficit ($M)',gridcolor:'#262C36',zerolinecolor:'#262C36'},
+    yaxis:{title:'Net Debt Issued ($M)',gridcolor:'#262C36',zerolinecolor:'#262C36'},
+    legend:{bgcolor:'#161A21',bordercolor:'#262C36'},
+    margin:{t:50,b:50,l:60,r:20}, height:350,
+  };
+  return {traces, layout};
+}
+
+function loadDefaultCharts() {
+  const byCompany = {};
+  data.forEach(r => { (byCompany[r.company] = byCompany[r.company]||[]).push(r); });
+  const container = document.getElementById('perCompanyCharts');
+  container.innerHTML = '';
+  Object.entries(byCompany).forEach(([company, rows]) => {
+    const {traces, layout} = buildChartForCompany(company, rows);
+    const div = document.createElement('div');
+    div.id = `chart-${company}`;
+    div.style.marginBottom = '16px';
+    container.appendChild(div);
+    Plotly.newPlot(`chart-${company}`, traces, layout, {responsive:true, displayModeBar:false});
+  });
+  document.getElementById('chartsSection').style.display = 'block';
+  loadCombinedChartJS(byCompany);
+}
+
+function loadCombinedChartJS(byCompany) {
+  const colors = ['#D4A93E','#4FAE7A','#C2604B','#6B8FD4','#B07FD4','#E8A87C','#7FD4C2'];
+  const traces = [];
+  let i = 0;
+  Object.entries(byCompany).forEach(([company, rows]) => {
+    const color = colors[i++ % colors.length];
+    const xs = rows.map(r => r.div + r.capex - r.ocf);
+    const ys = rows.map(r => r.ltdebt + r.stdebt);
+    const years = rows.map(r => String(r.year));
+    const {beta} = regress(xs, ys);
+    traces.push({x:xs, y:ys, text:years, mode:'markers', marker:{color,size:9},
+      name:company, hovertemplate:`${company}<br>Year: %{text}<br>Deficit: $%{x:,.0f}M<br>Net Debt: $%{y:,.0f}M<extra></extra>`});
+    if (beta !== null && xs.length >= 2) {
+      const mx = xs.reduce((a,b)=>a+b,0)/xs.length;
+      const my = ys.reduce((a,b)=>a+b,0)/ys.length;
+      const alpha = my - beta * mx;
+      const x0 = Math.min(...xs), x1 = Math.max(...xs);
+      traces.push({x:[x0,x1], y:[alpha+beta*x0,alpha+beta*x1], mode:'lines',
+        line:{color,width:1.5,dash:'dash'}, name:`${company} β=${beta.toFixed(2)}`});
+    }
+  });
+  const layout = {
+    title:{text:'All Companies — Deficit vs. Net Debt Issued',font:{color:'#E8E6DD',size:15}},
+    paper_bgcolor:'#161A21', plot_bgcolor:'#0E1116',
+    font:{color:'#8A8F99',family:'monospace'},
+    xaxis:{title:'Financing Deficit ($M)',gridcolor:'#262C36',zerolinecolor:'#262C36'},
+    yaxis:{title:'Net Debt Issued ($M)',gridcolor:'#262C36',zerolinecolor:'#262C36'},
+    legend:{bgcolor:'#161A21',bordercolor:'#262C36'},
+    margin:{t:50,b:50,l:60,r:20}, height:450,
+  };
+  Plotly.newPlot('combinedChart', traces, layout, {responsive:true, displayModeBar:false});
+}
+
 render();
-</script>
-</body>
-</html>
+loadDefaultCharts();
