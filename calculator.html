@@ -76,6 +76,7 @@
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 </style>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -115,6 +116,13 @@
   </div>
 
   <div class="results" id="results"></div>
+
+  <div id="chartsSection" style="display:none; margin-top:32px;">
+    <div class="eyebrow" style="margin-bottom:16px;">Regression Charts</div>
+    <div id="perCompanyCharts"></div>
+    <div id="combinedChart" style="margin-top:24px;"></div>
+    <button onclick="loadCombinedChart()" style="margin-top:16px;">Refresh Combined Chart</button>
+  </div>
 
   <div class="legend">
     <span><span class="dot" style="background:var(--amber)"></span>Surplus-dominant — equity/debt choice was never a structural necessity</span>
@@ -221,6 +229,14 @@ function addYear() {
   render();
 }
 
+function renderChart(chartData, containerId) {
+  const div = document.getElementById(containerId);
+  if (!div || !chartData) return;
+  Plotly.newPlot(containerId, chartData.data, chartData.layout, {responsive: true, displayModeBar: false});
+}
+
+const perCompanyChartData = {};
+
 async function fetchLive() {
   const ticker = document.getElementById('liveTicker').value.toUpperCase().trim();
   const status = document.getElementById('liveStatus');
@@ -241,10 +257,47 @@ async function fetchLive() {
         div: r.dividends, ltdebt: r.lt_debt, stdebt: r.st_debt, equity: r.equity
       });
     });
+
+    // Store and render per-company chart
+    if (json.chart) {
+      perCompanyChartData[ticker] = json.chart;
+      renderPerCompanyCharts();
+    }
+
+    document.getElementById('chartsSection').style.display = 'block';
     status.textContent = `Added ${json.rows.length} years for ${ticker}.`;
     render();
+    loadCombinedChart();
   } catch (e) {
     status.textContent = `Backend not reachable at ${API_BASE}`;
+  }
+}
+
+function renderPerCompanyCharts() {
+  const container = document.getElementById('perCompanyCharts');
+  container.innerHTML = '';
+  Object.entries(perCompanyChartData).forEach(([ticker, chartData]) => {
+    const div = document.createElement('div');
+    div.id = `chart-${ticker}`;
+    div.style.marginBottom = '16px';
+    container.appendChild(div);
+    Plotly.newPlot(`chart-${ticker}`, chartData.data, chartData.layout, {responsive: true, displayModeBar: false});
+  });
+}
+
+async function loadCombinedChart() {
+  const companies = [...new Set(data.map(r => r.company))];
+  if (companies.length < 2) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/combined-chart?tickers=${companies.join(',')}`);
+    const json = await res.json();
+    if (json.chart) {
+      const div = document.getElementById('combinedChart');
+      div.innerHTML = '';
+      Plotly.newPlot('combinedChart', json.chart.data, json.chart.layout, {responsive: true, displayModeBar: false});
+    }
+  } catch(e) {
+    console.log('Combined chart error:', e);
   }
 }
 
